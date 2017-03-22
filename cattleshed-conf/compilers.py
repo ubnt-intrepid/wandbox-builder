@@ -9,6 +9,7 @@ import os
 import glob
 from collections import defaultdict
 
+IGNORE_NONEXISTENCE = False
 
 def merge(*args):
     result = {}
@@ -43,7 +44,11 @@ def get_boost_versions():
 
 # [(<boost-version>, <compiler>, <compiler-version>)]
 def get_boost_versions_with_head():
-    return get_boost_versions() + [(bv,) + tuple(c.split('-')) for bv, c in get_boost_head_versions()]
+    global IGNORE_NONEXISTENCE
+    versions = get_boost_versions() + [(bv,) + tuple(c.split('-')) for bv, c in get_boost_head_versions()]
+    if IGNORE_NONEXISTENCE == True:
+        versions = [version for version in versions if os.path.isdir(os.path.join(data_path(), "boost-{0}/{1}-{2}".format(*version)))]
+    return versions
 
 
 def read_versions(name):
@@ -52,9 +57,12 @@ def read_versions(name):
 
 
 def get_generic_versions(name, with_head):
-    lines = read_versions(name)
-    head = ['head'] if with_head else []
-    return head + lines
+    global IGNORE_NONEXISTENCE
+    versions = read_versions(name)
+    versions = versions + ['head'] if with_head else versions
+    if IGNORE_NONEXISTENCE == True:
+        versions = [version for version in versions if os.path.isdir(os.path.join(data_path(), "{0}-{1}".format(name, version)))]
+    return versions
 
 
 # foo-1.23.4
@@ -1256,6 +1264,9 @@ class Compilers(object):
 
     def make_scala(self):
         scala_vers = read_versions('scala-head') + get_generic_versions('scala', with_head=False)
+        if IGNORE_NONEXISTENCE == True:
+            scala_vers = [ver for ver in scala_vers if os.path.isdir(os.path.join(data_path(), "scala-{0}".format(ver)))]
+
         compilers = []
         for cv in scala_vers:
             if cv[-2:] == '.x':
@@ -1603,22 +1614,23 @@ class Compilers(object):
         display_name = 'lazyk'
         version_command = ['/bin/echo', '']
 
-        compilers.append({
-            'name': 'lazyk',
-            'displayable': True,
-            'language': 'Lazy K',
-            'output-file': 'prog.lazy',
-            'compiler-option-raw': False,
-            'compile-command': ['/bin/true'],
-            'version-command': version_command,
-            'switches': [],
-            'initial-checked': [],
-            'display-name': display_name,
-            'display-compile-command': 'lazyk prog.lazy',
-            'run-command': ['/opt/wandbox/lazyk/bin/lazyk', 'prog.lazy'],
-            'runtime-option-raw': True,
-            'jail-name': 'melpon2-default',
-        })
+        if IGNORE_NONEXISTENCE != True or os.path.isdir(os.path.join(data_path(), "lazyk")):
+            compilers.append({
+                'name': 'lazyk',
+                'displayable': True,
+                'language': 'Lazy K',
+                'output-file': 'prog.lazy',
+                'compiler-option-raw': False,
+                'compile-command': ['/bin/true'],
+                'version-command': version_command,
+                'switches': [],
+                'initial-checked': [],
+                'display-name': display_name,
+                'display-compile-command': 'lazyk prog.lazy',
+                'run-command': ['/opt/wandbox/lazyk/bin/lazyk', 'prog.lazy'],
+                'runtime-option-raw': True,
+                'jail-name': 'melpon2-default',
+            })
         return compilers
 
     def make_vim(self):
